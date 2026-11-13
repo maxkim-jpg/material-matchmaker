@@ -1,3 +1,14 @@
+set_website_title("Material Matchmaker")
+set_site_information(
+    author="Max Kim",
+    description="Find your perfect material.",
+    sources="Drafter documents, chatgpt, and engineering wiki.",
+    planning=["CS1 Final Project 0_ Pick a Problem.pdf", "CS1 Final Project 1_ Design"],
+    links=["https://github.com/maxkim-jpg/material-matchmaker"]
+)
+hide_debug_information()
+set_website_framed(False)
+
 from drafter import *
 from dataclasses import dataclass, field
 
