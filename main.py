@@ -5,13 +5,22 @@ from dataclasses import dataclass, field
 set_website_title("Material Matchmaker")
 set_site_information(
     author="Max Kim",
-    description="Find your perfect material.",
-    sources="Drafter documents, chatgpt, and engineering wiki.",
-    planning=["CS1 Final Project 0_ Pick a Problem.pdf", "CS1 Final Project 1_ Design"],
+    description="Find your perfect material",
+    sources="Drafter docs, chatgpt, engineer wiki.",
+    planning=["plan.pdf", "design.pdf"],
     links=["https://github.com/maxkim-jpg/material-matchmaker"]
 )
 hide_debug_information()
 set_website_framed(False)
+
+
+# =====================================
+# MATERIALS DATABASE
+# =====================================
+
+# Each material contains its density, heat resistance,
+# and cost per kilogram as strings.
+# Ranges are converted into averages later.
 
 raw_materials = {
     "Acrylonitrile butadiene styrene (ABS)": ("1,030–1,070", "70–85", "2.3–3.4"),
@@ -78,7 +87,20 @@ raw_materials = {
     "Zinc die-casting alloy Zamak 3": ("6,600", "50–100", "2.8–4.5")
 }
 
+
 def get_average(value):
+    """
+    Convert a material property string into a float.
+
+    If the string contains a range, calculate its midpoint.
+    If it contains one number, convert that number directly.
+
+    Args:
+        value (str): A single number or range of numbers.
+
+    Returns:
+        float: The numerical value or average of the range.
+    """
     value = value.replace(",", "")
     value = value.replace("–", "-")
 
@@ -90,7 +112,10 @@ def get_average(value):
     return float(value)
 
 
-# Convert raw tuples into property dictionaries
+# Convert the raw material data into a usable dictionary.
+# Density is converted from kg/m3 to g/cm3.
+# Cost is converted from dollars/kg to dollars/lb.
+
 materials = {}
 
 for name, properties in raw_materials.items():
@@ -102,12 +127,25 @@ for name, properties in raw_materials.items():
         "cost_per_pound": round(get_average(cost) / 2.20462, 2)
     }
 
+
 # =====================================
 # STATE DATACLASS
 # =====================================
 
 @dataclass
 class State:
+    """
+    Store the user's preferences and material search information.
+
+    Attributes:
+        density (float): The user's desired density in g/cm3.
+        heat_resistance (float): Desired heat resistance in Celsius.
+        cost_per_pound (float): Desired cost in dollars per pound.
+        matching_materials (list[str]): Material names ranked by score.
+        scores (dict[str, int]): Match score for each material.
+        selected_material_1 (str): First material chosen by the user.
+        selected_material_2 (str): Second material chosen by the user.
+    """
     density: float = 2.7
     heat_resistance: float = 175.0
     cost_per_pound: float = 1.5
@@ -124,6 +162,19 @@ class State:
 # =====================================
 
 def check_density(material, state):
+    """
+    Check whether a material's density matches the user's preference.
+
+    The material passes if its density is within 20 percent
+    of the user's desired density.
+
+    Args:
+        material (dict): Dictionary containing material properties.
+        state (State): The user's current preferences.
+
+    Returns:
+        bool: True if density is within range, otherwise False.
+    """
     difference = abs(material["density"] - state.density)
     tolerance = state.density * 0.20
 
@@ -131,6 +182,19 @@ def check_density(material, state):
 
 
 def check_heat(material, state):
+    """
+    Check whether a material's heat resistance matches the target.
+
+    The material passes if its heat resistance is within
+    20 degrees Celsius of the user's desired value.
+
+    Args:
+        material (dict): Dictionary containing material properties.
+        state (State): The user's current preferences.
+
+    Returns:
+        bool: True if heat resistance is within range.
+    """
     difference = abs(
         material["heat_resistance"] - state.heat_resistance
     )
@@ -139,6 +203,19 @@ def check_heat(material, state):
 
 
 def check_cost(material, state):
+    """
+    Check whether a material's cost matches the user's preference.
+
+    The material passes if its cost per pound is within
+    20 percent of the user's desired cost.
+
+    Args:
+        material (dict): Dictionary containing material properties.
+        state (State): The user's current preferences.
+
+    Returns:
+        bool: True if cost is within range, otherwise False.
+    """
     difference = abs(
         material["cost_per_pound"] - state.cost_per_pound
     )
@@ -148,6 +225,19 @@ def check_cost(material, state):
 
 
 def calculate_score(material, state):
+    """
+    Calculate how closely a material matches the user's preferences.
+
+    One point is awarded for each property within its
+    acceptable range, giving a maximum score of three.
+
+    Args:
+        material (dict): Material properties to evaluate.
+        state (State): The user's desired material properties.
+
+    Returns:
+        int: Match score between 0 and 3.
+    """
     score = 0
 
     if check_density(material, state):
@@ -163,6 +253,22 @@ def calculate_score(material, state):
 
 
 def find_matches(state):
+    """
+    Evaluate and rank all materials in the database.
+
+    Calculates a score for every material and sorts the
+    results from highest to lowest score. Materials with
+    equal scores are sorted alphabetically.
+
+    Updates the matching_materials and scores attributes
+    in the user's State.
+
+    Args:
+        state (State): The current user's preferences.
+
+    Returns:
+        None: Results are saved directly into State.
+    """
     results = []
 
     for name, material in materials.items():
@@ -182,6 +288,16 @@ def find_matches(state):
 
 
 def match_label(score):
+    """
+    Convert a numerical match score into a descriptive label.
+
+    Args:
+        score (int): The material's score from 0 to 3.
+
+    Returns:
+        str: Excellent Match, Good Match, Partial Match,
+             or No Match.
+    """
     if score == 3:
         return "Excellent Match"
     elif score == 2:
@@ -193,6 +309,16 @@ def match_label(score):
 
 
 def status_text(passed):
+    """
+    Create a readable result for an individual property check.
+
+    Args:
+        passed (bool): Whether the material passed the check.
+
+    Returns:
+        str: PASS if the property matches, otherwise
+             OUTSIDE RANGE.
+    """
     if passed:
         return "PASS"
     else:
@@ -205,6 +331,18 @@ def status_text(passed):
 
 @route
 def index(state: State) -> Page:
+    """
+    Display the homepage of Material Matchmaker.
+
+    Introduces the website, explains the three searchable
+    material properties, and provides navigation buttons.
+
+    Args:
+        state (State): The current application state.
+
+    Returns:
+        Page: The homepage with navigation options.
+    """
     return Page(state, [
         Header("Material Matchmaker"),
 
@@ -236,6 +374,20 @@ def index(state: State) -> Page:
 
 @route
 def search_page(state: State) -> Page:
+    """
+    Display the material search form.
+
+    Allows users to enter their desired density,
+    heat resistance, and cost per pound.
+
+    The form uses values already stored in State.
+
+    Args:
+        state (State): Stores the current search preferences.
+
+    Returns:
+        Page: The search page containing three input fields.
+    """
     return Page(state, [
         Header("Find Your Material"),
 
@@ -284,7 +436,23 @@ def run_search(
     heat_resistance: float,
     cost_per_pound: float
 ) -> Page:
+    """
+    Process the user's material search inputs.
 
+    Validates the density and cost values, updates the
+    user's State, clears previous material selections,
+    and calculates new material matches.
+
+    Args:
+        state (State): The current application state.
+        density (float): User's desired density in g/cm3.
+        heat_resistance (float): Desired temperature in Celsius.
+        cost_per_pound (float): Desired cost in dollars per pound.
+
+    Returns:
+        Page: The results page if inputs are valid,
+              or an error page if an input is invalid.
+    """
     if density <= 0:
         return Page(state, [
             Header("Invalid Density"),
@@ -317,7 +485,21 @@ def run_search(
 
 @route
 def results_page(state: State) -> Page:
+    """
+    Display all materials ranked by their matching scores.
 
+    Shows how many materials received excellent or good
+    scores and lists each material's properties.
+
+    Users can select a material for additional details
+    or navigate to the comparison page.
+
+    Args:
+        state (State): Contains the ranked results and scores.
+
+    Returns:
+        Page: A page displaying all ranked material results.
+    """
     if not state.matching_materials:
         find_matches(state)
 
@@ -399,6 +581,16 @@ def results_page(state: State) -> Page:
 
 @route
 def choose_material(state: State, name: str) -> Page:
+    """
+    Save the selected material and open its details page.
+
+    Args:
+        state (State): The current application state.
+        name (str): Name of the material selected by the user.
+
+    Returns:
+        Page: The details page for the selected material.
+    """
     state.selected_material_1 = name
     return material_page(state)
 
@@ -409,7 +601,21 @@ def choose_material(state: State, name: str) -> Page:
 
 @route
 def material_page(state: State) -> Page:
+    """
+    Display detailed information about a selected material.
 
+    Shows the material's density, heat resistance, cost,
+    individual property checks, and overall match score.
+
+    If no valid material is selected, the user is sent
+    back to the results page.
+
+    Args:
+        state (State): Contains the selected material and preferences.
+
+    Returns:
+        Page: The selected material's details page.
+    """
     name = state.selected_material_1
 
     if name not in materials:
@@ -466,7 +672,19 @@ def material_page(state: State) -> Page:
 
 @route
 def compare_page(state: State) -> Page:
+    """
+    Display a page for selecting two materials to compare.
 
+    Retrieves and alphabetically sorts all material names.
+    Previously selected materials are used when available.
+
+    Args:
+        state (State): Stores the selected comparison materials.
+
+    Returns:
+        Page: The material selection page or a message
+              if no materials are available.
+    """
     names = list(materials.keys())
     names.sort()
 
@@ -515,7 +733,24 @@ def show_comparison(
     first: str,
     second: str
 ) -> Page:
+    """
+    Compare the properties of two selected materials.
 
+    Displays both materials' density, heat resistance,
+    cost per pound, and overall match scores.
+
+    Also identifies which material has the lower density,
+    higher heat resistance, and lower cost.
+
+    Args:
+        state (State): The current application state.
+        first (str): Name of the first selected material.
+        second (str): Name of the second selected material.
+
+    Returns:
+        Page: A comparison page, or an error page
+              if the same material is selected twice.
+    """
     if first == second:
         return Page(state, [
             Header("Choose Different Materials"),
@@ -582,6 +817,18 @@ def show_comparison(
 
 @route
 def about_page(state: State) -> Page:
+    """
+    Explain the purpose and matching system of the website.
+
+    Describes the three material properties, acceptable
+    ranges, and the meaning of each match score.
+
+    Args:
+        state (State): The current application state.
+
+    Returns:
+        Page: An informational page about Material Matchmaker.
+    """
     return Page(state, [
         Header("About Material Matchmaker"),
 
@@ -636,7 +883,18 @@ def about_page(state: State) -> Page:
 
 @route
 def reset_page(state: State) -> Page:
+    """
+    Reset the user's material search to its default settings.
 
+    Creates a new State object, clearing previous search
+    preferences, rankings, scores, and material selections.
+
+    Args:
+        state (State): The previous application state.
+
+    Returns:
+        Page: A confirmation page using the new State.
+    """
     state = State()
 
     return Page(state, [
@@ -655,4 +913,3 @@ def reset_page(state: State) -> Page:
 # =====================================
 
 start_server(State())
-
