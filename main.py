@@ -1,3 +1,7 @@
+
+from drafter import *
+from dataclasses import dataclass, field
+
 set_website_title("Material Matchmaker")
 set_site_information(
     author="Max Kim",
@@ -8,9 +12,6 @@ set_site_information(
 )
 hide_debug_information()
 set_website_framed(False)
-
-from drafter import *
-from dataclasses import dataclass, field
 
 raw_materials = {
     "Acrylonitrile butadiene styrene (ABS)": ("1,030–1,070", "70–85", "2.3–3.4"),
